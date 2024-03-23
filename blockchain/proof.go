@@ -10,14 +10,14 @@ import (
 	"math/big"
 )
 
-const Difficulity = 12
+const Difficulity = 18
 
 type PoW struct {
 	Block  *Block
 	Target *big.Int
 }
 
-func newPoW(b *Block) *PoW {
+func NewPoW(b *Block) *PoW {
 	target := big.NewInt(1)
 	target.Lsh(target, uint(256-Difficulity))
 	pow := &PoW{b, target}
@@ -28,7 +28,7 @@ func (pow *PoW) InitData(nonce int) []byte {
 	data := bytes.Join(
 		[][]byte{
 			pow.Block.PrevHash,
-			pow.Block.Data,
+			pow.Block.HashTransactions(),
 			ToHex(int64(nonce)),
 			ToHex(int64(Difficulity)),
 		},
