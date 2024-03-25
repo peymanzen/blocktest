@@ -1,7 +1,11 @@
 package blockchain
 
 import (
+	"encoding/hex"
 	"fmt"
+	"log"
+
+	//"log"
 	"os"
 	"runtime"
 
@@ -30,38 +34,85 @@ func DBexists() bool {
 	}
 	return true
 }
-
 func ContinueBlockChain(address string) *BlockChain {
-	if DBexists() == false {
-		fmt.Println("No existing blockchain found, create one!")
-		runtime.Goexit()
-	}
+    if !DBexists() {
+        fmt.Println("No existing blockchain found, create one!")
+        runtime.Goexit()
+    }
 
-	var lastHash []byte
+    var lastHash []byte
 
-	opts := badger.DefaultOptions(dbPath)
-	opts.Dir = dbPath
-	opts.ValueDir = dbPath
+    opts := badger.DefaultOptions(dbPath).WithDir(dbPath).WithValueDir(dbPath)
 
-	db, err := badger.Open(opts)
-	Handle(err)
+    db, err := badger.Open(opts)
+    if err != nil {
+        log.Fatalf("Failed to open DB: %v", err)
+    }
 
-	err = db.Update(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte("lh")) // Assuming "lh" is your key for the last hash
-		Handle(err)
+    err = db.Update(func(txn *badger.Txn) error {
+        item, err := txn.Get([]byte("lh"))
+        if err == badger.ErrKeyNotFound {
+            // Handle the case where the "lh" key is not found.
+            fmt.Println("Key 'lh' not found. Please make sure the blockchain is initialized.")
+            return err // Or handle this more gracefully as needed for your application logic.
+        } else if err != nil {
+            // Handle other potential errors.
+            return err
+        }
 
-		// Corrected way to retrieve the value
-		err = item.Value(func(val []byte) error {
-			lastHash = append([]byte{}, val...) // Copy the value to lastHash
-			return nil
-		})
-		return err
-	})
-	Handle(err)
+        // Retrieve the value with the correct handling.
+        return item.Value(func(val []byte) error {
+            lastHash = append([]byte{}, val...) // Copy the value to lastHash.
+			
+            return nil
+        })
+    })
+	
+    if err != nil {
+        log.Fatalf("Failed to update DB: %v", err)
+    }
 
-	chain := BlockChain{lastHash, db}
-	return &chain
+    chain := BlockChain{LastHash: lastHash, Database: db}
+    return &chain
 }
+
+// func ContinueBlockChain(address string) *BlockChain {
+
+// 	if DBexists() == false {
+// 		fmt.Println("No existing blockchain found, create one!")
+// 		runtime.Goexit()
+// 	}
+
+// 	var lastHash []byte
+
+// 	opts := badger.DefaultOptions(dbPath)
+// 	opts.Dir = dbPath
+// 	opts.ValueDir = dbPath
+
+// 	db, err := badger.Open(opts)
+// 	Handle(err)
+
+// 	err = db.Update(func(txn *badger.Txn) error {
+// 		item, err := txn.Get([]byte("lh")) 
+// 		// Assuming "lh" is your key for the last hash
+// 		fmt.Println(err)
+// 		Handle(err)
+		
+// 		// Corrected way to retrieve the value
+// 		err = item.Value(func(val []byte) error {
+// 			lastHash = append([]byte{}, val...) // Copy the value to lastHash
+// 			fmt.Println("44")
+// 			return nil
+// 		})
+		
+// 		return err
+// 	})
+
+// 	Handle(err)
+
+// 	chain := BlockChain{lastHash, db}
+// 	return &chain
+// }
 
 func InitBlockChain(address string) *BlockChain {
 	var lastHash []byte
@@ -102,7 +153,7 @@ func InitBlockChain(address string) *BlockChain {
 		fmt.Println("Genesis Created")
 		err = txn.Set(genesis.Hash, genesis.Serialize())
 		Handle(err)
-		err = txn.Set([]byte("lastHash"), genesis.Hash)
+		err = txn.Set([]byte("lh"), genesis.Hash)
 		lastHash = genesis.Hash
 		return err
 	})
@@ -111,10 +162,10 @@ func InitBlockChain(address string) *BlockChain {
 	return &blockchain
 }
 
-func (chain *BlockChain) AddBlock(data string) {
+func (chain *BlockChain) AddBlock(transactions []*Transaction) {
 	var lastHash []byte
 	err := chain.Database.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte("lastHash"))
+		item, err := txn.Get([]byte("lh"))
 		Handle(err)
 
 		// Corrected way to retrieve the value
@@ -125,12 +176,12 @@ func (chain *BlockChain) AddBlock(data string) {
 		return err
 	})
 	Handle(err)
-	newBlock := CreateBlock(data, lastHash)
+	newBlock := CreateBlock(transactions, lastHash)
 
 	err = chain.Database.Update(func(txn *badger.Txn) error {
 		err := txn.Set(newBlock.Hash, newBlock.Serialize())
 		Handle(err)
-		err = txn.Set([]byte("lastHash"), newBlock.Hash)
+		err = txn.Set([]byte("lh"), newBlock.Hash)
 		chain.LastHash = newBlock.Hash
 		return err
 	})

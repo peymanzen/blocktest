@@ -22,7 +22,7 @@ type Block struct {
 
 // }
 
-func (b *Block) HashTransactions() []byte {
+func (b *Block) HashTransactions() []byte { 
 	var txHashes [][]byte
 	var txHash [32]byte
 
@@ -62,7 +62,7 @@ func Deserialize(data []byte) *Block {
 	decoder := gob.NewDecoder(bytes.NewReader(data))
 	err := decoder.Decode(&block)
 	Handle(err)
-	return &block
+	return &block 
 }
 
 func Handle(err error) {
