@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
-	"log"
+	"github.com/peymanzen/blocktest/handler"
 )
 
 type Block struct {
@@ -53,7 +53,7 @@ func (b *Block) Serialize() []byte {
 	var res bytes.Buffer
 	encoder := gob.NewEncoder(&res)
 	err := encoder.Encode(b)
-	Handle(err)
+	handler.Handle(err)
 	return res.Bytes()
 }
 
@@ -61,12 +61,8 @@ func Deserialize(data []byte) *Block {
 	var block Block
 	decoder := gob.NewDecoder(bytes.NewReader(data))
 	err := decoder.Decode(&block)
-	Handle(err)
+	handler.Handle(err)
 	return &block 
 }
 
-func Handle(err error) {
-	if err != nil {
-		log.Panic(err)
-	}
-}
+
